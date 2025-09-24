@@ -1,0 +1,8 @@
+{
+  "ping_response": "Pong! 🏓",
+  "language_set": "Language set to English!",
+  "current_language": "Current language",
+  "choose_language": "Choose a language:",
+  "invalid_language": "Invalid language.",
+  "available_languages": "Available languages"
+}
