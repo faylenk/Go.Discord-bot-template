@@ -19,7 +19,7 @@ func InitDB() {
 
 	DB, err = sql.Open("sqlite3", dbPath)
 	if err != nil {
-		log.Fatal("Erro ao abrir o banco de dados:", err)
+		log.Fatal("Error at opening DB:", err)
 	}
 
 	statement, err := DB.Prepare(`
@@ -29,12 +29,12 @@ func InitDB() {
 		)
 	`)
 	if err != nil {
-		log.Fatal("Erro ao preparar a tabela:", err)
+		log.Fatal("Error at making table:", err)
 	}
 	statement.Exec()
 	statement.Close()
 
-	log.Println("Banco de dados inicializado com sucesso.")
+	log.Println("Database initialized successfully")
 }
 
 func CloseDB() {
@@ -43,24 +43,41 @@ func CloseDB() {
 	}
 }
 
+func EnsureGuildExists(guildID string) {
+	if DB == nil {
+		return
+	}
+
+	// Verify if the guild already exists
+	var count int
+	err := DB.QueryRow("SELECT COUNT(*) FROM guilds WHERE id = ?", guildID).Scan(&count)
+	if err != nil {
+		log.Println("Error checking guild existence:", err)
+		return
+	}
+
+	if count == 0 {
+		SetLanguage(guildID, getDefaultLang())
+		log.Printf("Created guild entry for %s with default language\n", guildID)
+	}
+}
+
 func GetLanguage(guildID string) string {
 	if DB == nil {
-		// Fallback para DEFAULT_LANG do .env
-		defaultLang := os.Getenv("DEFAULT_LANG")
-		if defaultLang == "" {
-			return "en" // fallback final
-		}
-		return defaultLang
+		return getDefaultLang()
+	}
+
+	// If guildID is empty, return default language
+	if guildID == "" {
+		return getDefaultLang()
 	}
 
 	var lang string
 	err := DB.QueryRow("SELECT language FROM guilds WHERE id = ?", guildID).Scan(&lang)
+
 	if err != nil {
-		// Se não encontrar guild, insere com DEFAULT_LANG
-		defaultLang := os.Getenv("DEFAULT_LANG")
-		if defaultLang == "" {
-			defaultLang = "en"
-		}
+		// If no language is set, use the default language
+		defaultLang := getDefaultLang()
 		SetLanguage(guildID, defaultLang)
 		return defaultLang
 	}
@@ -68,9 +85,17 @@ func GetLanguage(guildID string) string {
 	return lang
 }
 
+func getDefaultLang() string {
+	defaultLang := os.Getenv("DEFAULT_LANG")
+	if defaultLang == "" {
+		return "en"
+	}
+	return defaultLang
+}
+
 func SetLanguage(guildID, language string) {
 	if DB == nil {
-		log.Println("Banco de dados não inicializado")
+		log.Println("Database not initialized. Cannot set language.")
 		return
 	}
 
@@ -78,14 +103,14 @@ func SetLanguage(guildID, language string) {
 		INSERT OR REPLACE INTO guilds (id, language) VALUES (?, ?)
 	`)
 	if err != nil {
-		log.Println("Erro ao preparar a query:", err)
+		log.Println("Error at setting query:", err)
 		return
 	}
 	defer statement.Close()
 
 	_, err = statement.Exec(guildID, language)
 	if err != nil {
-		log.Println("Erro ao salvar idioma:", err)
+		log.Println("Error saving language:", err)
 		return
 	}
 }

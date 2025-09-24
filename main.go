@@ -4,7 +4,8 @@ import (
 	"godiscordbot/src/commands"
 	_ "godiscordbot/src/commands/fun"
 	_ "godiscordbot/src/commands/util"
-	"godiscordbot/src/config" // Importe o config
+	"godiscordbot/src/config"
+	"godiscordbot/src/i18n"
 
 	"log"
 	"os"
@@ -16,18 +17,26 @@ import (
 )
 
 func main() {
-	// Carrega variáveis de ambiente do .env
+	// Loads .env file
 	err := godotenv.Load()
 	if err != nil {
-		log.Println("Não foi possível carregar o arquivo .env, continuando com variáveis do sistema...")
+		log.Println("It was not possible to load .env file, proceeding with system environment variables.")
+	}
+
+	// Loads Translations
+	err = i18n.LoadLocales()
+	if err != nil {
+		log.Printf("Error loading locales: %v", err)
+	} else {
+		log.Println("Translations loaded successfully")
 	}
 
 	token := os.Getenv("DISCORD_TOKEN")
 	if token == "" {
-		log.Fatal("Token do bot não encontrado.")
+		log.Fatal("No bot token provided in DISCORD_TOKEN environment variable.")
 	}
 
-	// Inicializa o banco de dados
+	// Initialize the database
 	config.InitDB()
 	defer config.CloseDB()
 
@@ -36,8 +45,13 @@ func main() {
 		log.Fatal(err)
 	}
 
-	// Handler de interação
+	// Interaction handler
 	bot.AddHandler(func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+		// Ensure the guild exists in the database
+		if i.GuildID != "" {
+			config.EnsureGuildExists(i.GuildID)
+		}
+
 		if cmd, ok := commands.Registered[i.ApplicationCommandData().Name]; ok {
 			cmd.Execute(s, i)
 		}
@@ -49,7 +63,7 @@ func main() {
 	}
 	defer bot.Close()
 
-	// Registra slash commands
+	// Register commands
 	var discordCmds []*discordgo.ApplicationCommand
 	for _, cmd := range commands.Registered {
 		discordCmds = append(discordCmds, &discordgo.ApplicationCommand{
@@ -62,7 +76,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	log.Println("Bot está online! CTRL+C para parar.")
+	log.Println("Bot is now running.")
 
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
