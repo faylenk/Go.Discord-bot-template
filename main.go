@@ -2,7 +2,6 @@ package main
 
 import (
 	"godiscordbot/src/commands"
-	_ "godiscordbot/src/commands/fun"
 	_ "godiscordbot/src/commands/util"
 	"godiscordbot/src/config"
 	"godiscordbot/src/i18n"
@@ -63,19 +62,24 @@ func main() {
 	}
 	defer bot.Close()
 
-	// Register commands
+	// Register commands with Discord - CORREÇÃO CRÍTICA AQUI
 	var discordCmds []*discordgo.ApplicationCommand
 	for _, cmd := range commands.Registered {
-		discordCmds = append(discordCmds, &discordgo.ApplicationCommand{
+		discordCmd := &discordgo.ApplicationCommand{
 			Name:        cmd.Name,
 			Description: cmd.Description,
-		})
-	}
-	_, err = bot.ApplicationCommandBulkOverwrite(bot.State.User.ID, "", discordCmds)
-	if err != nil {
-		log.Fatal(err)
+			Options:     cmd.Options, // ← ESTA LINHA ESTAVA FALTANDO!
+		}
+		discordCmds = append(discordCmds, discordCmd)
+		log.Printf("Registering command: %s (options: %d)", cmd.Name, len(cmd.Options))
 	}
 
+	_, err = bot.ApplicationCommandBulkOverwrite(bot.State.User.ID, "", discordCmds)
+	if err != nil {
+		log.Fatal("Error registering commands:", err)
+	}
+
+	log.Printf("Registered %d commands successfully", len(discordCmds))
 	log.Println("Bot is now running.")
 
 	stop := make(chan os.Signal, 1)
