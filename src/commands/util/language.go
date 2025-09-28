@@ -12,55 +12,68 @@ import (
 )
 
 func init() {
-	langChoices := createLanguageChoices()
-
 	commands.Register(commands.Command{
 		Name:        "language",
-		Description: "Set the bot's language for this server.",
+		Description: "Set the bot's language for this server",
 		Options: []*discordgo.ApplicationCommandOption{
 			{
 				Type:        discordgo.ApplicationCommandOptionString,
-				Name:        "lang",
-				Description: "The language you want to set.",
+				Name:        "language",
+				Description: "Select your preferred language",
 				Required:    true,
-				Choices:     langChoices,
+				Choices:     createLanguageChoices(),
 			},
 		},
 		Execute: executeLanguage,
 	})
 }
 
-// createLanguageChoices creates a list of language choices for the command option.
+// createLanguageChoices creates the language selection options
 func createLanguageChoices() []*discordgo.ApplicationCommandOptionChoice {
-	availableLangs := i18n.GetAvailableLocales()
-	choices := make([]*discordgo.ApplicationCommandOptionChoice, 0, len(availableLangs))
+	return []*discordgo.ApplicationCommandOptionChoice{
+		{
+			Name:  "English", // Display name
+			Value: "en",      // Internal value
+		},
+		{
+			Name:  "Português (Brasil)", // Display name
+			Value: "pt-BR",              // Internal value
+		},
+	}
+}
 
-	// Maps language codes to their display names
-	langNames := map[string]string{
+// getLanguageDisplayName returns the display name for a language code
+func getLanguageDisplayName(langCode string) string {
+	displayNames := map[string]string{
 		"en":    "English",
 		"pt-BR": "Português (Brasil)",
-		// Add more languages here as needed
 	}
 
-	for _, langCode := range availableLangs {
-		name, ok := langNames[langCode]
-		if !ok {
-			name = langCode
-		}
-		choices = append(choices, &discordgo.ApplicationCommandOptionChoice{
-			Name:  name,
-			Value: langCode,
-		})
+	if name, ok := displayNames[langCode]; ok {
+		return name
 	}
-	return choices
+	return langCode
 }
 
 func executeLanguage(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	options := i.ApplicationCommandData().Options
+
+	// Safety check
+	if len(options) == 0 {
+		currentLang := config.GetLanguage(i.GuildID)
+		errorMsg := fmt.Sprintf(
+			"Please select a language from the dropdown menu.\n(Current language: **%s**)",
+			getLanguageDisplayName(currentLang),
+		)
+		respondWithMessage(s, i, errorMsg)
+		return
+	}
+
 	guildID := i.GuildID
 	selectedLang := options[0].StringValue()
+	languageName := getLanguageDisplayName(selectedLang)
 
-	currentLang := config.GetLanguage(guildID)
+	// Validate the selected language
 	availableLangs := i18n.GetAvailableLocales()
 	isValid := false
 	for _, lang := range availableLangs {
@@ -71,19 +84,32 @@ func executeLanguage(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	}
 
 	if !isValid {
+		currentLang := config.GetLanguage(guildID)
+
+		var availableOptions []string
+		for _, langCode := range availableLangs {
+			availableOptions = append(availableOptions, getLanguageDisplayName(langCode))
+		}
+
 		errorMsg := fmt.Sprintf(
-			"%s\n%s: %s",
-			i18n.T(currentLang, "invalid_language"),
-			i18n.T(currentLang, "available_languages"),
-			strings.Join(availableLangs, ", "),
+			"**Invalid language selection** ❌\n(Current language: **%s**)\n\nPlease choose one of the following:\n• %s",
+			getLanguageDisplayName(currentLang),
+			strings.Join(availableOptions, "\n• "),
 		)
 		respondWithMessage(s, i, errorMsg)
 		return
 	}
 
+	// Set the new language
 	config.SetLanguage(guildID, selectedLang)
 
-	successMsg := i18n.T(selectedLang, "language_set")
+	// Create success message in the new language
+	successMsg := fmt.Sprintf(
+		"**Language Updated** ✅\n\nBot language has been set to: **%s**\n\n%s",
+		languageName,
+		i18n.T(selectedLang, "language_set"),
+	)
+
 	respondWithMessage(s, i, successMsg)
 }
 

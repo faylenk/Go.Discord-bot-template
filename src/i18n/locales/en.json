@@ -1,8 +1,7 @@
 {
-  "ping_response": "Pong! 🏓",
-  "language_set": "Language set to English!",
-  "current_language": "Current language",
-  "choose_language": "Choose a language:",
+  "ping_response": "Pong!",
+  "language_set": "Language set successfully!",
   "invalid_language": "Invalid language.",
-  "available_languages": "Available languages"
+  "available_languages": "Available languages",
+  "invalid_usage": "Invalid usage"
 }
